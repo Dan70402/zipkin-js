@@ -1,0 +1,23 @@
+{
+  "name": "zipkin-instrumentation-ioredis",
+  "version": "0.0.1",
+  "description": "Interceptor for ioredis clients",
+  "main": "lib/zipkinClient.js",
+  "scripts": {
+    "build": "babel src -d lib",
+    "test": "mocha --require ../../test/helper.js",
+    "prepublish": "npm run build"
+  },
+  "author": "OpenZipkin <openzipkin.alt@gmail.com>",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/openzipkin/zipkin-js",
+  "devDependencies": {
+    "babel-cli": "^6.23.0",
+    "mocha": "^3.2.0",
+    "ioredis": "^3.1.0",
+    "zipkin": "^0.6.1"
+  },
+  "dependencies": {
+    "redis-commands": "^1.2.0"
+  }
+}
