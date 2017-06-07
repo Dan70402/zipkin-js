@@ -17,8 +17,8 @@ module.exports = function zipkinClient(
       tracer.scoped(() => {
         tracer.setId(id);
         tracer.recordAnnotation(new Annotation.ClientRecv());
+        callback.apply(this, args);
       });
-      callback.apply(this, args);
     };
   }
   function commonAnnotations(rpc) {
