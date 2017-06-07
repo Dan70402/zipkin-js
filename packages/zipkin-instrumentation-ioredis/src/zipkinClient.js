@@ -12,6 +12,7 @@ module.exports = function zipkinClient(
     host: new InetAddress(options.host),
     port: options.port
   };
+
   function mkZipkinCallback(callback, id) {
     return function zipkinCallback(...args) {
       tracer.scoped(() => {
@@ -23,13 +24,13 @@ module.exports = function zipkinClient(
       });
     };
   }
+
   function commonAnnotations(rpc) {
     tracer.recordRpc(rpc);
     tracer.recordAnnotation(new Annotation.ServiceName(serviceName));
     tracer.recordAnnotation(new Annotation.ServerAddr(sa));
     tracer.recordAnnotation(new Annotation.ClientSend());
   }
-
 
   const redisClient = redis.createClient(options);
   const methodsToWrap = redisCommands.list;
@@ -50,20 +51,40 @@ module.exports = function zipkinClient(
     }
     const actualFn = redisClient[method];
     redisClient[method] = function(...args) {
-      let callback;
-      if (typeof(args[args.length - 1]) === 'function') {
-        callback = args.pop();
-      }
-
       let id;
       tracer.scoped(() => {
         id = tracer.createChildId();
         tracer.setId(id);
         commonAnnotations(method);
       });
-      const wrapper = mkZipkinCallback(callback, id);
-      const newArgs = [...args, wrapper];
-      return actualFn.apply(this, newArgs);
+
+      if (typeof(args[args.length - 1]) === 'function') {
+        // callback based
+        const callback = args.pop();
+        const wrapper = mkZipkinCallback(callback, id);
+        const newArgs = [...args, wrapper];
+        return actualFn.apply(this, newArgs);
+      } else {
+        // promise based
+        return new Promise((resolve, reject) => {
+          actualFn.apply(this, [...args])
+            .then((res) => {
+              tracer.scoped(() => {
+                tracer.setId(id);
+                tracer.recordAnnotation(new Annotation.ClientRecv());
+                resolve(res);
+              });
+            })
+            .catch((err) => {
+              tracer.scoped(() => {
+                tracer.setId(id);
+                tracer.recordAnnotation(new Annotation.ClientRecv());
+                tracer.recordBinary('error', err.toString());
+                reject(err);
+              });
+            });
+        });
+      }
     };
   });
 
